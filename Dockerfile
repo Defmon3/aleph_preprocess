@@ -17,7 +17,7 @@ COPY pyproject.toml uv.lock ./
 COPY . .
 
 # Install into system site-packages in builder
-RUN uv sync --frozen --system
+RUN uv sync --frozen
 
 
 # Stage 2: final
