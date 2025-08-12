@@ -4,10 +4,10 @@ FROM python:3.12-slim-bookworm AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install `uv` using the official recommended method.
+# Install `uv`.
 COPY --from=ghcr.io/astral-sh/uv:0.4.1 /uv /uvx /bin/
 
-# Install system dependencies needed for building Python packages.
+# Install system dependencies.
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
     build-essential \
     python3-dev \
@@ -19,30 +19,18 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Create the virtual environment.
-RUN uv venv /opt/venv
-
 WORKDIR /app
-
-# Copy only the files needed for dependency installation first.
 COPY pyproject.toml uv.lock ./
-
-# --- STEP 1: Sync dependencies from the lock file ---
-# This follows the pattern you provided.
-RUN /opt/venv/bin/uv sync --no-cache --locked
-
-# Copy the rest of the application source code.
 COPY . .
 
-# --- STEP 2: Install the local project itself ---
-# --no-deps is crucial because `sync` already installed everything.
-RUN /opt/venv/bin/uv pip install --no-cache --no-deps .
+# Install dependencies and the project into the system Python site-packages.
+RUN uv pip install --no-cache --locked .
 
 
 # Stage 2: The "final" production stage
 FROM python:3.12-slim-bookworm AS final
 
-# Install only the run-time libraries our application needs.
+# Install only the run-time libraries.
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
     libpq5 \
     libicu72 \
@@ -53,17 +41,17 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
 # Create the non-root user.
 RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 
-# Copy the entire, self-contained virtual environment from the builder stage.
-COPY --from=builder /opt/venv /opt/venv
+# Copy the installed packages from the builder's system site-packages.
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Give our non-root user ownership of the application.
-RUN chown -R app:app /opt/venv
+# Copy the executable script from the builder's system bin.
+COPY --from=builder /usr/local/bin/sanitize /usr/local/bin/
 
 WORKDIR /app
-ENV PATH="/opt/venv/bin:$PATH" \
-    FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
+ENV FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
     REDIS_URL=redis://redis:6379/0
 
 USER app
 
+# The executable is on the system PATH.
 CMD ["sanitize", "worker"]
