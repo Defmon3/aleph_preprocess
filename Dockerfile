@@ -26,11 +26,19 @@ RUN uv venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
+
+# Copy only the files needed to install dependencies
+COPY pyproject.toml requirements.lock ./
+
+# Use `uv sync` to install the exact versions from the lock file.
+# This is the fastest and most reproducible way to install.
+RUN uv sync --no-cache --system-site-packages requirements.lock
+
+# Now copy the rest of your application source code
 COPY . .
 
-# Perform a standard (non-editable) install.
-# This copies the source code into the venv's site-packages.
-RUN uv install --no-cache --system-site-packages .
+# Install the local project itself, without re-installing dependencies
+RUN uv pip install --no-cache --no-deps .
 
 
 # Stage 2: The "final" production stage
@@ -50,8 +58,7 @@ RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 # Copy the virtual environment from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
-# --- THIS IS THE FIX ---
-# Change ownership of the virtual environment to the app user
+# Change ownership to fix the runtime permission error
 RUN chown -R app:app /opt/venv
 
 WORKDIR /app
