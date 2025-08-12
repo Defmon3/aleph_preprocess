@@ -23,6 +23,7 @@ setup(
     test_suite="tests",
     tests_require=[],
     entry_points={
-        "console_scripts": ["sanitize = sanitize.cli:cli"],
+        "console_scripts": ["sanitize = sanitize.cli:sanitize"],
+
     },
 )
