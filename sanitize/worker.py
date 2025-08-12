@@ -19,7 +19,7 @@ from ftmstore import Dataset
 from servicelayer.worker import Worker
 log = logging.getLogger(__name__)
 OP_SANITIZE = "sanitize_html"
-
+log.debug(f"Worker operation: {OP_SANITIZE}")
 
 def _sanitize_html(text: str) -> str:
     """
