@@ -36,7 +36,7 @@ COPY . .
 # --- THE CORRECT COMMAND ---
 # `uv pip install --locked` automatically detects and uses `uv.lock`.
 # This single command installs both the project and its locked dependencies.
-RUN uv pip install --no-cache --locked .
+RUN uv pip install --no-cache .
 
 
 # Stage 2: The "final" production stage
