@@ -28,11 +28,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
 # Copy the dependency definitions
-COPY pyproject.toml requirements.lock ./
+COPY pyproject.toml uv.lock ./
 
 # This `uv sync` will now install both production AND test dependencies
 # because the new `requirements.lock` contains them.
-RUN uv sync --no-cache --system-site-packages requirements.lock
+RUN uv sync --no-cache --system-site-packages uv.lock
 
 # Copy the rest of the application source
 COPY . .
