@@ -27,17 +27,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Copy only the files needed to install dependencies
+# Copy the dependency definitions
 COPY pyproject.toml requirements.lock ./
 
-# Use `uv sync` to install the exact versions from the lock file.
-# This is the fastest and most reproducible way to install.
+# This `uv sync` will now install both production AND test dependencies
+# because the new `requirements.lock` contains them.
 RUN uv sync --no-cache --system-site-packages requirements.lock
 
-# Now copy the rest of your application source code
+# Copy the rest of the application source
 COPY . .
 
-# Install the local project itself, without re-installing dependencies
+# Install the local project itself
 RUN uv pip install --no-cache --no-deps .
 
 
@@ -55,7 +55,7 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
 # Create the non-root user
 RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 
-# Copy the virtual environment from the builder stage
+# Copy the virtual environment (which now has all deps)
 COPY --from=builder /opt/venv /opt/venv
 
 # Change ownership to fix the runtime permission error
