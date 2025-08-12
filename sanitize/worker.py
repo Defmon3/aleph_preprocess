@@ -55,7 +55,7 @@ class ServiceWorker(Worker):
         stage = task.job.get_stage(next_stage)
         ctx = task.context
         ctx["pipeline"] = pipeline
-        log.info("Dispatching {} entities → {}", len(entity_ids), next_stage)
+        log.info(f"Dispatching {len(entity_ids)} entities → {next_stage}")
         stage.queue({"entity_ids": entity_ids}, ctx)
 
     def _sanitize_entity(self, writer, entity) -> None:
@@ -64,7 +64,7 @@ class ServiceWorker(Worker):
         texts = entity.get_type_values(registry.text)
         if not texts:
             return
-        log.debug("Sanitizing %r", entity)
+        log.debug(f"Sanitizing {entity}", )
         clean = " ".join(_sanitize_html(t) for t in texts if t)
         if not clean:
             return
@@ -75,6 +75,7 @@ class ServiceWorker(Worker):
         writer.put(partial)
 
     def handle(self, task) -> None:
+        log.debug(f"Worker handling task: {task}")
         dataset = None
         try:
             name = task.context.get("ftmstore", task.job.dataset.name)
@@ -87,17 +88,13 @@ class ServiceWorker(Worker):
                     # Safely process each entity; if one fails, log it and continue.
                     self._sanitize_entity(writer, entity)
                 except Exception:
-                    log.exception("Failed to sanitize entity: %r", entity)
+                    log.exception(f"Failed to sanitize entity: {entity}")
 
             writer.flush()
             self._dispatch_next(task, entity_ids)
         except Exception:
-            # Log any catastrophic error (e.g., DB connection, flush error)
-            # and re-raise to let servicelayer handle the task failure.
-            log.exception("Worker failed to handle task: %r", task)
+            log.exception(f"Worker failed to handle task: {task}")
             raise
         finally:
-            # This block is guaranteed to run, ensuring the dataset connection
-            # is always closed to prevent resource leaks.
             if dataset is not None:
                 dataset.close()
