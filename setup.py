@@ -12,6 +12,10 @@ setup(
         "followthemoney",
         "followthemoney-store[postgresql]",
         "servicelayer[google,amazon]",
+        "beautifulsoup4>=4.13.4",
+        "lxml>=6.0.0",
+        "loguru>=0.7.3",
+        "click>=8.2.1",
 
     ],
     license="MIT",
