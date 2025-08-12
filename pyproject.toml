@@ -11,6 +11,7 @@ dependencies = [
     "servicelayer>=1.25.0",
     "followthemoney",
     "followthemoney-store[postgresql]",
+    "servicelayer[google,amazon]"
 ]
 
 
