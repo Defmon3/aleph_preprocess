@@ -1,0 +1,21 @@
+[project]
+name = "aleph-preprocess"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "click>=8.2.1",
+    "loguru>=0.7.3",
+    "lxml>=6.0.0",
+    "servicelayer>=1.25.0",
+]
+
+
+[project.scripts]
+sanitize = "sanitize.cli:sanitize"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
