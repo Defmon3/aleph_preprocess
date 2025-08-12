@@ -30,11 +30,11 @@ WORKDIR /app
 # Copy the dependency definitions
 COPY pyproject.toml uv.lock ./
 
-# This `uv sync` will now install both production AND test dependencies
-# because the new `requirements.lock` contains them.
-RUN uv sync --no-cache --system-site-packages uv.lock
+# --- THIS IS THE FIX ---
+# Use `uv sync` without the unsupported argument.
+RUN uv sync --no-cache uv.lock
 
-# Copy the rest of the application source
+# Copy the rest of your application source code
 COPY . .
 
 # Install the local project itself
@@ -55,7 +55,7 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
 # Create the non-root user
 RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 
-# Copy the virtual environment (which now has all deps)
+# Copy the virtual environment from the builder stage
 COPY --from=builder /opt/venv /opt/venv
 
 # Change ownership to fix the runtime permission error
