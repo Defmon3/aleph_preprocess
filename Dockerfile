@@ -1,29 +1,27 @@
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
-    locales libxml2 libxslt1.1 \
- && sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
- && locale-gen \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get -qq -y update \
+    && apt-get -qq -y install build-essential locales ca-certificates \
+    python3-pip python3-dev python3-pil python3-icu libpq-dev \
+    && apt-get -qq -y autoremove \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
-ENV LANG=en_US.UTF-8 \
-    LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8 \
-    PYTHONIOENCODING=UTF-8
+# Set up the locale and make sure the system uses unicode for the file system.
+ENV LANG='en_US.UTF-8'
+RUN groupadd -g 1000 -r app \
+    && useradd -m -u 1000 -s /bin/false -g app app
 
-RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
+COPY . /sanitize
+WORKDIR /sanitize
+RUN pip3 install --no-cache-dir -e /translate
+RUN chown -R app:app /translate
 
-WORKDIR /app
-COPY pyproject.toml uv.lock* ./
-RUN pip install -q uv && uv sync --frozen --no-dev
-COPY . .
-RUN chown -R app:app /app
+ENV FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
+    REDIS_URL=redis://redis:6379/0
+
 USER app
-
-ENV REDIS_URL=redis://redis:6379/0 \
-    STAGE_NAME=sanitize_html
-
-CMD ["sanitize","worker"]
+CMD sanitize worker
