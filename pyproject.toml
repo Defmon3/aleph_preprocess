@@ -8,7 +8,6 @@ dependencies = [
     "click>=8.2.1",
     "loguru>=0.7.3",
     "lxml>=6.0.0",
-    "servicelayer>=1.25.0",
     "followthemoney",
     "followthemoney-store[postgresql]",
     "servicelayer[google,amazon]"
