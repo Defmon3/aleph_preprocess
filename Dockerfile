@@ -11,7 +11,8 @@ RUN apt-get -qq -y update \
     && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 ENV LANG='en_US.UTF-8'
 
-RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
+RUN groupadd -g 1000 -r app \
+    && useradd -m -u 1000 -s /bin/false -g app app
 RUN pip3 install --no-cache-dir -q -U pip setuptools six wheel nose coverage
 
 
