@@ -43,8 +43,6 @@ RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 # Copy the installed packages from the builder's system site-packages.
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Copy the executable script from the builder's system bin.
-COPY --from=builder /usr/local/bin/sanitize /usr/local/bin/
 
 WORKDIR /app
 # Install dependencies and the project into the system Python site-packages.
