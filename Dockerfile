@@ -14,9 +14,8 @@ RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 
 WORKDIR /sanitize
 COPY . .
-RUN pip install --no-cache-dir -U pip setuptools wheel \
-    && pip install --no-cache-dir pyicu \
-    && pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -U pip setuptools wheel
+RUN pip install --no-cache-dir -e .
 
 
 ENV FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
