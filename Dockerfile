@@ -27,18 +27,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Copy the dependency definitions
+# Copy the project and lock files
 COPY pyproject.toml uv.lock ./
 
-# --- THIS IS THE FIX ---
-# Use `uv sync` without the unsupported argument.
-RUN uv sync --no-cache uv.lock
-
-# Copy the rest of your application source code
+# Copy the rest of the application source
 COPY . .
 
-# Install the local project itself
-RUN uv pip install --no-cache --no-deps .
+# --- THIS IS THE FIX ---
+# `uv pip install` automatically detects and uses `uv.lock`.
+# `--frozen` ensures it installs EXACTLY what is in the lock file.
+# This single command replaces both `sync` and the separate `install .`.
+RUN uv pip install --no-cache --frozen
 
 
 # Stage 2: The "final" production stage
