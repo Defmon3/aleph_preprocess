@@ -23,8 +23,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY . .
 
-# Install dependencies and the project into the system Python site-packages.
-RUN uv pip install --no-cache --locked .
+
 
 
 # Stage 2: The "final" production stage
@@ -48,6 +47,8 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin/sanitize /usr/local/bin/
 
 WORKDIR /app
+# Install dependencies and the project into the system Python site-packages.
+RUN uv sync
 ENV FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
     REDIS_URL=redis://redis:6379/0
 
