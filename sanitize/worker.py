@@ -11,14 +11,13 @@ Dependencies:
 from __future__ import annotations
 
 import re
-
+import logging
 from bs4 import BeautifulSoup
 from followthemoney import model
 from followthemoney.types import registry
 from ftmstore import Dataset
-from loguru import logger as log
 from servicelayer.worker import Worker
-
+log = logging.getLogger(__name__)
 OP_SANITIZE = "sanitize_html"
 
 
