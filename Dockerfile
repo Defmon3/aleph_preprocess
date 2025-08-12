@@ -27,17 +27,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Copy the project and lock files
+# Copy the project and lock files first to leverage Docker's cache
 COPY pyproject.toml uv.lock ./
 
-# Copy the rest of the application source
+# Copy the rest of the application source code
 COPY . .
 
-# --- THIS IS THE FIX ---
-# `uv pip install` automatically detects and uses `uv.lock`.
-# `--frozen` ensures it installs EXACTLY what is in the lock file.
-# This single command replaces both `sync` and the separate `install .`.
-RUN uv pip install --no-cache --frozen
+# --- THE CORRECT COMMAND ---
+# `uv pip install --locked` automatically detects and uses `uv.lock`.
+# This single command installs both the project and its locked dependencies.
+RUN uv pip install --no-cache --locked .
 
 
 # Stage 2: The "final" production stage
