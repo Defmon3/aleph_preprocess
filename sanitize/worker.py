@@ -5,7 +5,7 @@ from followthemoney import model
 from followthemoney.namespace import Namespace
 from followthemoney.types import registry
 from ftmstore import get_dataset
-
+import re
 log = logging.getLogger(__name__)
 
 
@@ -57,12 +57,19 @@ class Sanitizer:
 
 def run_sanitize(dataset_name):
     db = get_dataset(dataset_name, "sanitize")
+    if db is None:
+        log.error(f"Dataset {dataset_name} not found for sanitization.")
+        return
     sanitizer = None
     for entity in db.partials():
         if sanitizer is None or sanitizer.entity.id != entity.id:
             if sanitizer is not None:
                 sanitizer.flush()
+            log.debug(f"Sanitizing entity: {entity}")
             sanitizer = Sanitizer(db, entity, {})
+        else:
+            log.debug(f"Could not sanitize : {entity}")
         sanitizer.feed(entity)
+
     if sanitizer is not None:
         sanitizer.flush()
