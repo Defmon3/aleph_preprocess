@@ -10,16 +10,19 @@ Dependencies:
 # sanitize/worker.py
 from __future__ import annotations
 
-import re
 import logging
+import re
+
 from bs4 import BeautifulSoup
 from followthemoney import model
 from followthemoney.types import registry
 from ftmstore import Dataset
 from servicelayer.worker import Worker
+
 log = logging.getLogger(__name__)
 OP_SANITIZE = "sanitize"
 log.debug(f"Worker operation: {OP_SANITIZE}")
+
 
 def _sanitize_html(text: str) -> str:
     """
@@ -70,7 +73,6 @@ class ServiceWorker(Worker):
             log.debug(f"No text fields to sanitize for entity: {entity}")
             return
         log.debug(f"Sanitizing {entity}", )
-
 
         clean = " ".join(_sanitize_html(t) for t in texts if t)
         if not clean:

@@ -1,7 +1,6 @@
 import click
 import logging
 from servicelayer.logs import configure_logging
-
 from sanitize.worker import ServiceWorker
 
 log = logging.getLogger(__name__)
