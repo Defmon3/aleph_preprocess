@@ -17,7 +17,7 @@ def cli():
 
 
 @cli.command()
-@click.option("--dataset", required=True, help="Name of the dataset")
+@click.option("--dataset", required=False, help="Name of the dataset")
 def worker(dataset):
     run_sanitize(dataset)
 
