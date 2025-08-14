@@ -3,7 +3,7 @@ FROM python:3.12-slim-bookworm AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/usr/local
 
-COPY --from=ghcr.io/astral-sh/uv:0.4.1 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
     git build-essential python3-dev pkg-config libicu-dev libpq-dev libxml2-dev libxslt1-dev ca-certificates \
  && rm -rf /var/lib/apt/lists/*
