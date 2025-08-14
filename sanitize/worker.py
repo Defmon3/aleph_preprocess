@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = "==3.12.9"
+# dependencies = []
+# ///
+
+"""
+SPDX-License-Identifier: LicenseRef-NonCommercial-Only
+© 2025 github.com/defmon3 — Non-commercial use only. Commercial use requires permission.
+Format docstrings according to PEP 287
+File: worker.py
+
+"""
+
 import logging
 
 from bs4 import BeautifulSoup
@@ -5,12 +19,13 @@ from followthemoney import model
 from followthemoney.types import registry
 from ftmstore import get_dataset
 from servicelayer.cache import get_redis
-from servicelayer.taskqueue import Worker, Task
+from servicelayer.taskqueue import Worker, Task, queue_task, get_rabbitmq_channel
+
 import re
 log = logging.getLogger(__name__)
 
 STAGE_SANITIZE = "sanitize"
-
+__version__ = "4.1.3" # Version of ingestors package
 
 def _sanitize_html(text: str) -> str:
     """
@@ -47,12 +62,38 @@ class SanitizeWorker(Worker):
         partial.add("translatedText", clean, quiet=True)
         writer.put(partial)
 
+    def _dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
+        """Forward to next stage in the pipeline if any."""
+        pipeline = list(task.context.get("pipeline") or [])
+        if not pipeline:
+            log.debug(f"No pipeline stages left for task: {task.task_id}")
+            return
+        next_stage = pipeline.pop(0)
+        context = dict(task.context, pipeline=pipeline)
+
+        queue_task(
+            get_rabbitmq_channel(),
+            get_redis(),
+            task.collection_id,
+            next_stage,          # e.g. "analyze"
+            task.job_id,
+            context,
+            **(payload or {}),
+        )
+
     def dispatch_task(self, task: Task) -> Task:
+        log.info(
+            f"Task [collection:{task.collection_id}]: "
+            f"op:{task.operation} task_id:{task.task_id} priority:{task.priority} (started)"
+        )
+
         db = get_dataset(task.collection_id, STAGE_SANITIZE)
         writer = db.bulk()
         for entity in db.partials():
             self._sanitize_entity(writer, entity)
         writer.flush()
+        self._dispatch_pipeline(task, payload={})
+
         return task
 
 
