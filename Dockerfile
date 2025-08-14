@@ -14,7 +14,7 @@ WORKDIR /app
 
 # 1) Copy dep files and install deps only (cached unless these change)
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 
 # 2) Copy source and install your package into venv
 COPY . .
