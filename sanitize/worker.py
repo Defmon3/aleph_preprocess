@@ -92,7 +92,6 @@ class ServiceWorker(Worker):
             for entity in dataset.partials(entity_id=entity_ids):
                 try:
                     log.debug(f"Processing entity: {entity.id}")
-                    # Safely process each entity; if one fails, log it and continue.
                     self._sanitize_entity(writer, entity)
                 except Exception:
                     log.exception(f"Failed to sanitize entity: {entity}")

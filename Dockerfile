@@ -16,7 +16,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 COPY . .
 RUN uv sync --frozen --no-dev
-
+RUN uv pip install --system
 # Stage 2: runtime
 FROM python:3.12-slim-bookworm AS final
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
