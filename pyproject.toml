@@ -21,10 +21,11 @@ dependencies = [
 [project.scripts]
 sanitize = "sanitize.cli:cli"
 
+[tool.setuptools.packages.find]
+include = ["sanitize*"]
+
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
 
-[tool.setuptools.package-dir]
-sanitize = "sanitize"
 

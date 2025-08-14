@@ -20,3 +20,8 @@ def worker():
 
 if __name__ == "__main__":
     cli()
+
+    """
+    docker compose logs -f | grep -Ev \"heartbeat|AMQPConnectionWorkflow|GET /api/2/(status|collections)|GoogleHC\""
+    
+    """
