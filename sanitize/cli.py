@@ -13,8 +13,8 @@ def cli():
 
 @cli.command()
 @click.option("--dataset", required=False, help="Name of the dataset")
-def worker(dataset):
-    log.debug(f">>>>>>>>>>>>   Starting worker for dataset {dataset}   <<<<<<<<<<<<")
+def worker(*args):
+    log.debug(f">>>>>>>>>>>>   Starting worker for dataset {args}   <<<<<<<<<<<<")
     """Start the queue and process tasks as they come. Blocks while waiting"""
     worker = ServiceWorker(stages=[OP_SANITIZE])
     worker.run()
