@@ -66,6 +66,7 @@ if __name__ == "__main__":
 from servicelayer.taskqueue import Worker, Task
 from servicelayer.cache import get_redis
 from servicelayer.taskqueue import Worker, Task, queue_task, get_rabbitmq_channel
+from ftmstore import get_dataset
 
 STAGE_SANITIZE = "sanitize"
 
@@ -85,7 +86,14 @@ class SanitizeWorker(Worker):
             **(payload or {}),
         )
     def dispatch_task(self, task: Task) -> Task:
-        return task
+        db = get_dataset(task.collection_id, STAGE_SANITIZE)
+        writer = db.bulk()
+        for entity in db.partials():
+            # Here you would implement your sanitization logic
+            # For example, removing sensitive information or normalizing data
+            pass
+        writer.flush()
+        self._dispatch_pipeline(task, payload={})
 
 def get_worker():
     return SanitizeWorker(queues=[STAGE_SANITIZE], conn=get_redis(), version="1.0")
