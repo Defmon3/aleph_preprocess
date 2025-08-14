@@ -14,20 +14,12 @@ def cli():
     configure_logging()
 
 
-@cli.command()
-@click.option("--dataset", required=False, help="Name of the dataset")
-def worker(dataset):
-    log.debug(f">>>>>>>>>>>>   Starting worker for dataset {dataset}   <<<<<<<<<<<<")
-    log.debug(f">>> >>>>>>>>>>   Using dataset  <<<<<<<<<<<<")
-    """Start the queue and process tasks as they come. Blocks while waiting"""
-    # worker = ServiceWorker(stages=[OP_SANITIZE])
-    get_worker()
-    # worker.run()
+
 
 
 @cli.command()
 @click.option("--dataset", required=True, help="Name of the dataset")
-def sanitize(dataset):
+def worker(dataset):
     run_sanitize(dataset)
 
 
