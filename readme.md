@@ -65,10 +65,25 @@ if __name__ == "__main__":
 ```python
 from servicelayer.taskqueue import Worker, Task
 from servicelayer.cache import get_redis
+from servicelayer.taskqueue import Worker, Task, queue_task, get_rabbitmq_channel
 
 STAGE_SANITIZE = "sanitize"
 
 class SanitizeWorker(Worker):
+    def _dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
+        pipeline = list(task.context.get("pipeline") or [])
+        next_stage = pipeline.pop(0)
+        context = dict(task.context, pipeline=pipeline)
+
+        queue_task(
+            get_rabbitmq_channel(),
+            get_redis(),
+            task.collection_id,
+            next_stage,          # e.g. "analyze"
+            task.job_id,
+            context,
+            **(payload or {}),
+        )
     def dispatch_task(self, task: Task) -> Task:
         return task
 
