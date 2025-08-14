@@ -1,8 +1,10 @@
-import click
 import logging
-from servicelayer.logs import configure_logging
+
+import click
 from ftmstore import get_dataset
-from worker import get_worker, OP_SANITIZE
+from servicelayer.logs import configure_logging
+
+from sanitize.worker import run_sanitize
 
 log = logging.getLogger(__name__)
 
@@ -13,11 +15,20 @@ def cli():
 
 
 @cli.command()
-def worker():
-    """Start the RabbitMQ-backed sanitize worker loop."""
-    log.info(f"Starting sanitize worker (queue: {OP_SANITIZE})..." )
-    w = get_worker()
-    w.run()
+@click.option("--dataset", required=False, help="Name of the dataset")
+def worker(dataset):
+    log.debug(f">>>>>>>>>>>>   Starting worker for dataset {dataset}   <<<<<<<<<<<<")
+    log.debug(f">>> >>>>>>>>>>   Using dataset  <<<<<<<<<<<<")
+    """Start the queue and process tasks as they come. Blocks while waiting"""
+    # worker = ServiceWorker(stages=[OP_SANITIZE])
+    get_worker()
+    # worker.run()
+
+
+@cli.command()
+@click.option("--dataset", required=True, help="Name of the dataset")
+def sanitize(dataset):
+    run_sanitize(dataset)
 
 
 if __name__ == "__main__":
