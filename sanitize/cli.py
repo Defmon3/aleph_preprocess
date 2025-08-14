@@ -14,8 +14,12 @@ def cli():
 
 
 @cli.command()
-def worker():
-    get_worker().run()
+@click.option("--dataset", required=False, help="Name of the dataset")
+def worker(dataset):
+    log.debug(f"Starting worker for dataset: {dataset}")
+    worker = get_worker()
+    worker.run()
+    log.debug("Worker has stopped.")
 
 if __name__ == "__main__":
     cli()
