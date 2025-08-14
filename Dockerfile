@@ -1,6 +1,7 @@
 # builder
 FROM python:3.12-slim-bookworm AS builder
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_PROJECT_ENVIRONMENT=system
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/usr/local
 
 COPY --from=ghcr.io/astral-sh/uv:0.4.1 /uv /uvx /bin/
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
@@ -11,7 +12,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY . .
 
-RUN uv sync --frozen --no-dev --no-editable --system
+RUN uv sync --frozen --no-dev --no-editable
 
 # final
 FROM python:3.12-slim-bookworm AS final
