@@ -1,112 +1,81 @@
-#!/usr/bin/env python3
-"""
-SPDX-License-Identifier: LicenseRef-NonCommercial-Only
-© 2025 github.com/defmon3 — Non-commercial use only. Commercial use requires permission.
-
-Dependencies:
-    uv add loguru beautifulsoup4 lxml servicelayer ftmstore followthemoney click
-"""
-
-# sanitize/worker.py
-from __future__ import annotations
-
 import logging
-import re
-
-from bs4 import BeautifulSoup
-from followthemoney import model
-from followthemoney.types import registry
-from ftmstore import Dataset
-from servicelayer.worker import Worker
+from banal import ensure_list
+from ftmstore import get_dataset
+from servicelayer.cache import get_redis
+from servicelayer.taskqueue import Worker, Task, get_rabbitmq_channel, queue_task
 
 log = logging.getLogger(__name__)
-OP_SANITIZE = "sanitize"
-log.debug(f"Worker operation: {OP_SANITIZE}")
 
+OP_SANITIZE = "sanitize"   # must match your pipeline stage name
 
-def _sanitize_html(text: str) -> str:
-    """
-    Minimal HTML → text suitable for Aleph indexing.
+class SanitizerWorker(Worker):
+    """Subscribe to the 'sanitize' queue and process continuation tasks."""
 
-    :param text: Raw HTML
-    :return: Collapsed plain text
-    """
-    log.debug(f"Sanitizing HTML: {text[:50]}...")  # Log first 100 chars for brevity
-    soup = BeautifulSoup(text or "", "lxml")
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-    container = soup.body or soup
-    raw = container.get_text(separator=" ", strip=True)
-    return re.sub(r"\s+", " ", raw).strip()
+    def _sanitize(self, ftmstore_dataset, task: Task):
+        """Do your work here. Return a list of entity_ids to continue the pipeline."""
+        log.debug(f"Sanitize task: {task}")
+        entity_ids = set(task.payload.get("entity_ids", []))
 
+        # Example: iterate the entities referenced by previous stage
+        # If you want to stream all partials, drop the filter
+        for entity in ftmstore_dataset.partials(entity_id=entity_ids or None):
+            log.debug("Sanitize: %r", entity)
+            # TODO: your sanitize logic
+            # - read entity / fragments
+            # - modify if needed
+            # - write via ftmstore_dataset.bulk().put(...)
+            pass
 
-class ServiceWorker(Worker):
-    """
-    Long-running stage worker:
-    - reads FtM partials from ftmstore
-    - sanitizes text fields from HTML
-    - writes partials with `translatedText` (to match the example’s pipeline)
-    - dispatches to the next stage
-    """
+        return list(entity_ids)
 
-    def _dispatch_next(self, task, entity_ids: list[str]) -> None:
-        if not entity_ids:
-            log.debug("No entities to dispatch, skipping next stage.")
-            return
-        pipeline = task.context.get("pipeline")
+    def dispatch_task(self, task: Task) -> Task:
+        log.info(
+            "Task [collection:%s]: op:%s task_id:%s priority:%s (started)",
+            task.collection_id, task.operation, task.task_id, task.priority
+        )
+
+        # Open the right ftmstore dataset for this stage
+        name = task.context.get("ftmstore", task.collection_id)
+        ftmstore_dataset = get_dataset(name, task.operation)
+
+        if task.operation == OP_SANITIZE:
+            entity_ids = self._sanitize(ftmstore_dataset, task)
+            self._dispatch_pipeline(task, {"entity_ids": entity_ids})
+
+        log.info(
+            "Task [collection:%s]: op:%s task_id:%s priority:%s (done)",
+            task.collection_id, task.operation, task.task_id, task.priority
+        )
+        return task
+
+    def _dispatch_pipeline(self, task: Task, payload: dict):
+        """Forward to the next stage in the pipeline, exactly like ingest-file."""
+        log.debug(f"Dispatching pipeline for task: {task.task_id} with payload: {payload}")
+        pipeline = ensure_list(task.context.get("pipeline"))
         if not pipeline:
-            log.debug("No pipeline defined, skipping next stage.")
             return
         next_stage = pipeline.pop(0)
-        stage = task.job.get_stage(next_stage)
-        ctx = task.context
-        ctx["pipeline"] = pipeline
-        log.info(f"Dispatching {len(entity_ids)} entities → {next_stage}")
-        stage.queue({"entity_ids": entity_ids}, ctx)
+        context = dict(task.context)
+        context["pipeline"] = pipeline
 
-    def _sanitize_entity(self, writer, entity) -> None:
-        if not entity.schema.is_a("Analyzable"):
-            log.debug(f"Skipping non-analyzable entity: {entity}")
-            return
-        texts = entity.get_type_values(registry.text)
-        if not texts:
-            log.debug(f"No text fields to sanitize for entity: {entity}")
-            return
-        log.debug(f"Sanitizing {entity}", )
+        queue_task(
+            get_rabbitmq_channel(),
+            get_redis(),
+            task.collection_id,
+            next_stage,
+            task.job_id,
+            context,
+            **payload,
+        )
 
-        clean = " ".join(_sanitize_html(t) for t in texts if t)
-        if not clean:
-            log.debug(f"No valid text found for entity: {entity}")
-            return
-        partial = model.make_entity(entity.schema)
-        partial.id = entity.id
-        # Mirror the example: write to `translatedText` so downstream indexers pick it up
-        partial.add("translatedText", clean, quiet=True)
-        writer.put(partial)
-
-    def handle(self, task) -> None:
-        log.debug(f"Worker handling task: {task}")
-        dataset = None
-        try:
-            name = task.context.get("ftmstore", task.job.dataset.name)
-            entity_ids = task.payload.get("entity_ids") or []
-            dataset = Dataset(name, OP_SANITIZE)
-            writer = dataset.bulk()
-            log.debug(f"Processing {len(entity_ids)} entities from dataset: {name}")
-            for entity in dataset.partials(entity_id=entity_ids):
-                try:
-                    log.debug(f"Processing entity: {entity.id}")
-                    self._sanitize_entity(writer, entity)
-                except Exception:
-                    log.exception(f"Failed to sanitize entity: {entity}")
-
-            writer.flush()
-            log.debug(f"Flushed {len(entity_ids)} sanitized entities to dataset: {name}")
-            self._dispatch_next(task, entity_ids)
-        except Exception:
-            log.exception(f"Worker failed to handle task: {task}")
-            raise
-        finally:
-            log.debug(f"Closing dataset")
-            if dataset is not None:
-                dataset.close()
+def get_worker(num_threads=None):
+    # Let’s mirror ingest-file’s QoS style if you want throttle later
+    prefetch = {OP_SANITIZE: 1}
+    log.info(f"Worker active, stages: {[OP_SANITIZE]}")
+    return SanitizerWorker(
+        queues=[OP_SANITIZE],
+        conn=get_redis(),
+        version="4.1.3",
+        num_threads=num_threads,
+        prefetch_count_mapping=prefetch,
+    )
