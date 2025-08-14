@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-sanitize = "sanitize.cli:sanitize"
+sanitize = "sanitize.cli:cli"
 
 [tool.setuptools]
 include-package-data = true
@@ -28,5 +28,3 @@ zip-safe = false
 [tool.setuptools.package-dir]
 sanitize = "sanitize"
 
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
