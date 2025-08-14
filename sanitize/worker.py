@@ -70,6 +70,8 @@ class ServiceWorker(Worker):
             log.debug(f"No text fields to sanitize for entity: {entity}")
             return
         log.debug(f"Sanitizing {entity}", )
+
+
         clean = " ".join(_sanitize_html(t) for t in texts if t)
         if not clean:
             log.debug(f"No valid text found for entity: {entity}")
