@@ -1,7 +1,6 @@
 import logging
 
 import click
-from ftmstore import get_dataset
 from servicelayer.logs import configure_logging
 
 from sanitize.worker import run_sanitize

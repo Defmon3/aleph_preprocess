@@ -1,14 +1,29 @@
 import logging
+
+from bs4 import BeautifulSoup
 from followthemoney import model
-from followthemoney.types import registry
 from followthemoney.namespace import Namespace
+from followthemoney.types import registry
 from ftmstore import get_dataset
 
 log = logging.getLogger(__name__)
 
+
 def _sanitize_html(text: str) -> str:
-    # Keep your real implementation here
-    return text.strip()
+    """
+    Minimal HTML → text suitable for Aleph indexing.
+
+    :param text: Raw HTML
+    :return: Collapsed plain text
+    """
+    log.debug(f"Sanitizing HTML: {text[:50]}...")  # Log first 100 chars for brevity
+    soup = BeautifulSoup(text or "", "lxml")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    container = soup.body or soup
+    raw = container.get_text(separator=" ", strip=True)
+    return re.sub(r"\s+", " ", raw).strip()
+
 
 class Sanitizer:
     def __init__(self, dataset, entity, context):
@@ -38,6 +53,7 @@ class Sanitizer:
 
     def flush(self):
         self.dataset.bulk().flush()
+
 
 def run_sanitize(dataset_name):
     db = get_dataset(dataset_name, "sanitize")
