@@ -10,9 +10,15 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# ---- Cache boundary: only re-run if deps change ----
 COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+# ---- End cache boundary ----
+
+# Now copy source separately so code edits don’t bust cache
 COPY . .
-RUN uv sync --frozen --no-dev    # creates /app/.venv and installs your package + deps
 
 # ---- Stage 2: runtime ----
 FROM python:3.12-slim-bookworm AS final
@@ -27,7 +33,7 @@ RUN groupadd -g 1000 -r app && useradd -m -u 1000 -s /bin/false -g app app
 WORKDIR /app
 # bring the venv (contains site-packages + console scripts)
 COPY --from=builder /app/.venv /app/.venv
-# if you installed your project in editable mode (default), bring sources too
+# bring sources
 COPY --from=builder /app /app
 
 ENV PATH="/app/.venv/bin:${PATH}" \
