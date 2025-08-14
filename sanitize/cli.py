@@ -12,7 +12,8 @@ def cli():
 
 
 @cli.command()
-def worker():
+@click.option("--dataset", required=True, help="Name of the dataset")
+def sanitize():
     """Start the queue and process tasks as they come. Blocks while waiting"""
     worker = ServiceWorker(stages=[OP_SANITIZE])
     worker.run()
@@ -20,8 +21,3 @@ def worker():
 
 if __name__ == "__main__":
     cli()
-
-    """
-    docker compose logs -f | grep -Ev \"heartbeat|AMQPConnectionWorkflow|GET /api/2/(status|collections)|GoogleHC\""
-    
-    """
