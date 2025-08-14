@@ -18,7 +18,7 @@ from followthemoney.types import registry
 from ftmstore import Dataset
 from servicelayer.worker import Worker
 log = logging.getLogger(__name__)
-OP_SANITIZE = "sanitize_html"
+OP_SANITIZE = "sanitize"
 log.debug(f"Worker operation: {OP_SANITIZE}")
 
 def _sanitize_html(text: str) -> str:
@@ -28,6 +28,7 @@ def _sanitize_html(text: str) -> str:
     :param text: Raw HTML
     :return: Collapsed plain text
     """
+    log.debug(f"Sanitizing HTML: {text[:50]}...")  # Log first 100 chars for brevity
     soup = BeautifulSoup(text or "", "lxml")
     for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
@@ -47,9 +48,11 @@ class ServiceWorker(Worker):
 
     def _dispatch_next(self, task, entity_ids: list[str]) -> None:
         if not entity_ids:
+            log.debug("No entities to dispatch, skipping next stage.")
             return
         pipeline = task.context.get("pipeline")
         if not pipeline:
+            log.debug("No pipeline defined, skipping next stage.")
             return
         next_stage = pipeline.pop(0)
         stage = task.job.get_stage(next_stage)
@@ -60,13 +63,16 @@ class ServiceWorker(Worker):
 
     def _sanitize_entity(self, writer, entity) -> None:
         if not entity.schema.is_a("Analyzable"):
+            log.debug(f"Skipping non-analyzable entity: {entity}")
             return
         texts = entity.get_type_values(registry.text)
         if not texts:
+            log.debug(f"No text fields to sanitize for entity: {entity}")
             return
         log.debug(f"Sanitizing {entity}", )
         clean = " ".join(_sanitize_html(t) for t in texts if t)
         if not clean:
+            log.debug(f"No valid text found for entity: {entity}")
             return
         partial = model.make_entity(entity.schema)
         partial.id = entity.id
@@ -82,19 +88,22 @@ class ServiceWorker(Worker):
             entity_ids = task.payload.get("entity_ids") or []
             dataset = Dataset(name, OP_SANITIZE)
             writer = dataset.bulk()
-
+            log.debug(f"Processing {len(entity_ids)} entities from dataset: {name}")
             for entity in dataset.partials(entity_id=entity_ids):
                 try:
+                    log.debug(f"Processing entity: {entity.id}")
                     # Safely process each entity; if one fails, log it and continue.
                     self._sanitize_entity(writer, entity)
                 except Exception:
                     log.exception(f"Failed to sanitize entity: {entity}")
 
             writer.flush()
+            log.debug(f"Flushed {len(entity_ids)} sanitized entities to dataset: {name}")
             self._dispatch_next(task, entity_ids)
         except Exception:
             log.exception(f"Worker failed to handle task: {task}")
             raise
         finally:
+            log.debug(f"Closing dataset")
             if dataset is not None:
                 dataset.close()
