@@ -2,11 +2,14 @@ import logging
 
 from bs4 import BeautifulSoup
 from followthemoney import model
-from followthemoney.namespace import Namespace
 from followthemoney.types import registry
 from ftmstore import get_dataset
+from servicelayer.cache import get_redis
+from servicelayer.taskqueue import Worker, Task
 import re
 log = logging.getLogger(__name__)
+
+STAGE_SANITIZE = "sanitize"
 
 
 def _sanitize_html(text: str) -> str:
@@ -25,14 +28,8 @@ def _sanitize_html(text: str) -> str:
     return re.sub(r"\s+", " ", raw).strip()
 
 
-class Sanitizer:
-    def __init__(self, dataset, entity, context):
-        self.dataset = dataset
-        self.ns = Namespace(context.get("namespace", dataset.name))
-        self.entity = model.make_entity(entity.schema)
-        self.entity.id = entity.id
-
-    def feed(self, entity):
+class SanitizeWorker(Worker):
+    def _sanitize_entity(self, writer, entity) -> None:
         if not entity.schema.is_a("Analyzable"):
             log.debug(f"Skipping non-analyzable entity: {entity}")
             return
@@ -48,28 +45,23 @@ class Sanitizer:
         partial = model.make_entity(entity.schema)
         partial.id = entity.id
         partial.add("translatedText", clean, quiet=True)
-        partial = self.ns.apply(partial)
-        self.dataset.bulk().put(partial)
+        writer.put(partial)
 
-    def flush(self):
-        self.dataset.bulk().flush()
+    def dispatch_task(self, task: Task) -> Task:
+        db = get_dataset(task.collection_id, STAGE_SANITIZE)
+        writer = db.bulk()
+        for entity in db.partials():
+            self._sanitize_entity(writer, entity)
+        writer.flush()
+        return task
 
 
-def run_sanitize(dataset_name):
-    db = get_dataset(dataset_name, "sanitize")
-    if db is None:
-        log.error(f"Dataset {dataset_name} not found for sanitization.")
-        return
-    sanitizer = None
-    for entity in db.partials():
-        if sanitizer is None or sanitizer.entity.id != entity.id:
-            if sanitizer is not None:
-                sanitizer.flush()
-            log.debug(f"Sanitizing entity: {entity}")
-            sanitizer = Sanitizer(db, entity, {})
-        else:
-            log.debug(f"Could not sanitize : {entity}")
-        sanitizer.feed(entity)
-
-    if sanitizer is not None:
-        sanitizer.flush()
+def get_worker(num_threads=None):
+    log.info(f"SanitizeWorker active on stage: {STAGE_SANITIZE}")
+    return SanitizeWorker(
+        queues=[STAGE_SANITIZE],
+        conn=get_redis(),
+        version="1.0",
+        num_threads=num_threads,
+        prefetch_count_mapping={STAGE_SANITIZE: 1},
+    )
