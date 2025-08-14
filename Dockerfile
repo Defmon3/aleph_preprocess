@@ -1,6 +1,7 @@
 # builder
 FROM python:3.12-slim-bookworm AS builder
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_PROJECT_ENVIRONMENT=system
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/usr/local
 
 COPY --from=ghcr.io/astral-sh/uv:0.4.1 /uv /uvx /bin/
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
@@ -10,9 +11,7 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY . .
-
-# System install (no .venv), lock enforced; non-editable so no source dependency
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev   # installs into /usr/local, no .venv
 
 # final
 FROM python:3.12-slim-bookworm AS final
@@ -30,4 +29,4 @@ ENV FTM_STORE_URI=postgresql://aleph:aleph@postgres/aleph \
     REDIS_URL=redis://redis:6379/0
 
 USER app
-CMD ["sanitize", "worker"]
+CMD ["sanitize","worker"]
