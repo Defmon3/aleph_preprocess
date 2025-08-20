@@ -138,7 +138,7 @@ class SanitizeWorker(Worker):
             4. Dispatch next stage if present.
         """
         log.info(
-            f"Task [collection:{task.collection_id}]: "
+            f"[Sanitize] Task [collection:{task.collection_id}]: "
             f"op:{task.operation} task_id:{task.task_id} priority:{task.priority} (started)"
         )
         db = get_dataset(task.collection_id, STAGE_SANITIZE)
