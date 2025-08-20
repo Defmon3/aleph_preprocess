@@ -117,7 +117,7 @@ class SanitizeWorker(Worker):
             4. Dispatch next stage if present.
         """
         log.info(
-            f"[Sanitize] Task [collection:{task.collection_id}]: "
+            f"[Sanitize:dispatch_task] Task [collection:{task.collection_id}]: "
             f"op:{task.operation} task_id:{task.task_id} priority:{task.priority} (started)"
         )
         db = get_dataset(task.collection_id, STAGE_SANITIZE)
@@ -126,7 +126,7 @@ class SanitizeWorker(Worker):
             ftmstore_dataset = get_dataset(name, task.operation)
         except Exception as e:
             log.error(f"Failed to open dataset {task.collection_id}: {e}")
-            self.dispatch_pipeline(task)
+            self.dispatch_pipeline(task, payload=task.payload or {})
             return task
 
         writer = db.bulk()
@@ -135,7 +135,7 @@ class SanitizeWorker(Worker):
             self.sanitize_entity(writer, entity)
 
         writer.flush()
-        self.dispatch_pipeline(task, payload={})
+        self.dispatch_pipeline(task, payload=task.payload or {})
         return task
 
 
