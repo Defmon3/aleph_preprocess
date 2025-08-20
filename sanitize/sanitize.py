@@ -27,14 +27,13 @@ def sanitize_html(text: str) -> str:
               Returns "" if nothing usable is found.
     """
     if not isinstance(text, str):
-        if isinstance(text, bytes):
-            try:
-                text = text.decode("utf-8", errors="ignore")
-            except Exception:
-                return ""
-        else:
+        if not isinstance(text, bytes):
             return ""
 
+        try:
+            text = text.decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
     try:
         try:
             soup = BeautifulSoup(text, "lxml")

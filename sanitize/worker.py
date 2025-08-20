@@ -19,6 +19,7 @@ from ftmstore import get_dataset
 from servicelayer.cache import get_redis
 from servicelayer.taskqueue import Worker, Task, queue_task, get_rabbitmq_channel
 
+from sanitize.phone import extract_phone_numbers
 from sanitize.sanitize import sanitize_html
 
 log = logging.getLogger(__name__)
@@ -38,41 +39,26 @@ class SanitizeWorker(Worker):
     """
 
     def sanitize_entity(self, writer, entity) -> None:
-        """
-        Sanitize all text fields of an entity and write a partial update.
-
-        :param writer: Bulk writer from ``ftmstore`` used to persist partials.
-        :param entity: FollowTheMoney entity to be processed.
-        :returns: ``None``. Writes a partial entity when sanitized text exists.
-        :notes:
-            - Only entities whose schema ``is_a("Analyzable")`` are processed.
-            - Aggregates all text-type properties, sanitizes, and stores the
-              result in ``translatedText``.
-        """
-
         if not entity.schema.is_a("Analyzable"):
             log.debug(f"Skipping non-analyzable entity: {entity}")
             return
         texts = entity.get_type_values(registry.text)
         if not texts:
-            log.debug(f"No text fields to sanitize for entity: {entity}")
+            log.debug(f"No text fields to extract phones from for entity: {entity}")
             return
-        log.debug(f"Sanitizing {entity}")
-        clean_parts = []
+        log.debug(f"Extracting phone numbers from {entity}")
+        phones = []
         for t in texts:
             if not t:
                 continue
-            try:
-                clean_parts.append(sanitize_html(t))
-            except ValueError:
-                continue
-        clean = " ".join(clean_parts).strip()
-        if not clean:
-            log.debug(f"No valid text found for entity: {entity}")
+            phones.extend(extract_phone_numbers(t))
+        if not phones:
+            log.debug(f"No phone numbers found for entity: {entity}")
             return
         partial = model.make_entity(entity.schema)
         partial.id = entity.id
-        partial.add("translatedText", clean, quiet=True)
+        for p in phones:
+            partial.add("phone", p, quiet=True)
         writer.put(partial)
 
     def dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
