@@ -12,41 +12,19 @@ File: worker.py
 """
 
 import logging
-import re
 
-from bs4 import BeautifulSoup
 from followthemoney import model
 from followthemoney.types import registry
 from ftmstore import get_dataset
 from servicelayer.cache import get_redis
 from servicelayer.taskqueue import Worker, Task, queue_task, get_rabbitmq_channel
 
+from sanitize.sanitize import sanitize_html
+
 log = logging.getLogger(__name__)
 
 STAGE_SANITIZE = "sanitize"
 __version__ = "4.1.3"
-
-
-def _sanitize_html(text: str) -> str:
-    """
-    Convert minimal HTML to collapsed plain text for indexing.
-
-    :param text: Raw or partially structured HTML content.
-    :returns: Plain text with scripts/styles removed and whitespace collapsed.
-    :raises ValueError: If ``text`` is None or empty after stripping.
-    :notes: Uses ``lxml`` parser via BeautifulSoup for robust tag handling.
-    """
-    preview = (text or "")[:50]
-    log.debug(f"Sanitizing HTML: {preview}...")
-    soup = BeautifulSoup(text or "", "lxml")
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-    container = soup.body or soup
-    raw = container.get_text(separator=" ", strip=True)
-    result = re.sub(r"\s+", " ", raw).strip()
-    if not result:
-        raise ValueError("No textual content after sanitization")
-    return result
 
 
 class SanitizeWorker(Worker):
@@ -59,7 +37,7 @@ class SanitizeWorker(Worker):
     pipeline stage.
     """
 
-    def _sanitize_entity(self, writer, entity) -> None:
+    def sanitize_entity(self, writer, entity) -> None:
         """
         Sanitize all text fields of an entity and write a partial update.
 
@@ -71,6 +49,7 @@ class SanitizeWorker(Worker):
             - Aggregates all text-type properties, sanitizes, and stores the
               result in ``translatedText``.
         """
+
         if not entity.schema.is_a("Analyzable"):
             log.debug(f"Skipping non-analyzable entity: {entity}")
             return
@@ -84,7 +63,7 @@ class SanitizeWorker(Worker):
             if not t:
                 continue
             try:
-                clean_parts.append(_sanitize_html(t))
+                clean_parts.append(sanitize_html(t))
             except ValueError:
                 continue
         clean = " ".join(clean_parts).strip()
@@ -96,7 +75,7 @@ class SanitizeWorker(Worker):
         partial.add("translatedText", clean, quiet=True)
         writer.put(partial)
 
-    def _dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
+    def dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
         """
         Forward the task to the next pipeline stage, if configured.
 
@@ -142,11 +121,21 @@ class SanitizeWorker(Worker):
             f"op:{task.operation} task_id:{task.task_id} priority:{task.priority} (started)"
         )
         db = get_dataset(task.collection_id, STAGE_SANITIZE)
+        try:
+            name = task.context.get("ftmstore", task.collection_id)
+            ftmstore_dataset = get_dataset(name, task.operation)
+        except Exception as e:
+            log.error(f"Failed to open dataset {task.collection_id}: {e}")
+            self.dispatch_pipeline(task)
+            return task
+
         writer = db.bulk()
+
         for entity in db.partials():
-            self._sanitize_entity(writer, entity)
+            self.sanitize_entity(writer, entity)
+
         writer.flush()
-        self._dispatch_pipeline(task, payload={})
+        self.dispatch_pipeline(task, payload={})
         return task
 
 

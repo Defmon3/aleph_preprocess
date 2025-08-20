@@ -16,6 +16,7 @@ dependencies = [
     "lxml>=6.0.0",
     "loguru>=0.7.3",
     "click>=8.2.1",
+    "phonenumbers",
 ]
 
 [project.scripts]
@@ -23,6 +24,11 @@ sanitize = "sanitize.cli:cli"
 
 [tool.setuptools.packages.find]
 include = ["sanitize*"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
 
 [tool.setuptools]
 include-package-data = true
