@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 
 def extract_phone_numbers(text: str | None) -> list[str]:
+    log.debug("Extracting phone numbers from text snippet")
     if not isinstance(text, str) or not text.strip():
         log.debug("No valid text provided for phone number extraction.")
         return []

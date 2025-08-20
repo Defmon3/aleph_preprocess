@@ -60,26 +60,26 @@ class SanitizeWorker(Worker):
         )
 
         try:
-            db = get_dataset(task.collection_id, STAGE_SANITIZE)
+            src = get_dataset(task.collection_id, "analyze")  # READ FROM ANALYZE
+            log.debug(f"Opened analyze-stage dataset for collection {task.collection_id}")
+            dst = get_dataset(task.collection_id, STAGE_SANITIZE)  # WRITE TO SANITIZE
+            log.debug(f"Opened sanitize-stage dataset for collection {task.collection_id}")
         except Exception as e:
-            log.error(f"Failed to open dataset for collection {task.collection_id}: {e}")
+            log.error(f"Dataset open failed for collection {task.collection_id}: {e}")
             self.dispatch_pipeline(task, payload=task.payload or {})
             return task
         log.debug(f"Opened sanitize-stage dataset for collection {task.collection_id}")
 
-        writer = db.bulk()
+        writer = dst.bulk()
         processed = 0
 
-        for entity in db.partials():
+        for entity in src.partials():
             self.sanitize_entity(writer, entity)
             processed += 1
 
         writer.flush()
-        log.debug(f"Flushed {processed} entities for collection {task.collection_id}")
-
-        self.dispatch_pipeline(task, payload=task.payload or {})
         log.info(f"[Sanitize:dispatch_task] Completed task {task.task_id} with {processed} entities")
-
+        self.dispatch_pipeline(task, payload=task.payload or {})
         return task
 
 
