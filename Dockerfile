@@ -17,6 +17,8 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 
 # 2) Copy source and install your package into venv
+# docker compose build --build-arg CACHE_BUST=$(date +%s) sanitize
+ARG CACHE_BUST=1
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 

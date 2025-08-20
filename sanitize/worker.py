@@ -104,7 +104,12 @@ class SanitizeWorker(Worker):
             f"task_id:{task.task_id} priority:{task.priority}]"
         )
 
-        db = get_dataset(task.collection_id, STAGE_SANITIZE)
+        try:
+            db = get_dataset(task.collection_id, STAGE_SANITIZE)
+        except Exception as e:
+            log.error(f"Failed to open dataset for collection {task.collection_id}: {e}")
+            self.dispatch_pipeline(task, payload=task.payload or {})
+            return task
         log.debug(f"Opened sanitize-stage dataset for collection {task.collection_id}")
 
         writer = db.bulk()
