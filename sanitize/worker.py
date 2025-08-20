@@ -39,6 +39,7 @@ class SanitizeWorker(Worker):
     """
 
     def sanitize_entity(self, writer, entity) -> None:
+        log.debug(f"Sanitizing entity: {entity}")
         if not entity.schema.is_a("Analyzable"):
             log.debug(f"Skipping non-analyzable entity: {entity}")
             return
@@ -96,32 +97,30 @@ class SanitizeWorker(Worker):
         :param task: Incoming task with ``collection_id``, ``operation``,
                      ``priority``, and pipeline context.
         :returns: The same ``task`` after processing and optional dispatch.
-        :workflow:
-            1. Open dataset stage ``sanitize``.
-            2. Iterate partial entities and sanitize where applicable.
-            3. Flush bulk writer.
-            4. Dispatch next stage if present.
         """
         log.info(
-            f"[Sanitize:dispatch_task] Task [collection:{task.collection_id}]: "
-            f"op:{task.operation} task_id:{task.task_id} priority:{task.priority} (started)"
+            f"[Sanitize:dispatch_task] Task started "
+            f"[collection:{task.collection_id} op:{task.operation} "
+            f"task_id:{task.task_id} priority:{task.priority}]"
         )
+
         db = get_dataset(task.collection_id, STAGE_SANITIZE)
-        try:
-            name = task.context.get("ftmstore", task.collection_id)
-            ftmstore_dataset = get_dataset(name, task.operation)
-        except Exception as e:
-            log.error(f"Failed to open dataset {task.collection_id}: {e}")
-            self.dispatch_pipeline(task, payload=task.payload or {})
-            return task
+        log.debug(f"Opened sanitize-stage dataset for collection {task.collection_id}")
 
         writer = db.bulk()
+        processed = 0
 
         for entity in db.partials():
+            log.debug(f"Processing entity {entity.id} ({entity.schema.name})")
             self.sanitize_entity(writer, entity)
+            processed += 1
 
         writer.flush()
+        log.debug(f"Flushed {processed} sanitized entities for collection {task.collection_id}")
+
         self.dispatch_pipeline(task, payload=task.payload or {})
+        log.info(f"[Sanitize:dispatch_task] Completed task {task.task_id} with {processed} entities")
+
         return task
 
 
