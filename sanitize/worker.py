@@ -13,11 +13,9 @@ File: worker.py
 
 import logging
 
-from followthemoney import model
-from ftmstore import get_dataset, get_dataset
-from ingestors import __version__, settings
-from ingestors.analysis import Analyzer
-from ingestors.manager import Manager
+from followthemoney import model # noqa: F401
+from ftmstore import get_dataset, get_dataset # noqa: F401
+
 from servicelayer.cache import get_redis
 from servicelayer.taskqueue import (
     Worker,
@@ -26,7 +24,7 @@ from servicelayer.taskqueue import (
     queue_task,
 )
 
-from sanitize.phone import process_entity_phones, process_text_mentions
+from sanitize.phone import  process_text_mentions
 
 log = logging.getLogger(__name__)
 
@@ -40,8 +38,6 @@ class SanitizeWorker(Worker):
 
     Delegates phone number extraction and mention creation to ``sanitize.phone``.
     """
-
-
 
     def dispatch_task(self, task: Task) -> Task:
         log.info("[sanitize.dispatch_task] enter task_id=%s collection_id=%s", task.task_id, task.collection_id)
@@ -102,9 +98,6 @@ class SanitizeWorker(Worker):
         return task
 
 
-    def sanitize_entity(self, writer, entity) -> None:
-        process_entity_phones(writer, entity)
-
     def dispatch_pipeline(self, task: Task, payload: dict | None = None) -> None:
         pipeline = list(task.context.get("pipeline") or [])
         if not pipeline:
@@ -121,6 +114,7 @@ class SanitizeWorker(Worker):
             context,
             **(payload or {}),
         )
+
 
 def get_worker(num_threads=None):
     log.info(f"SanitizeWorker active on stage: {STAGE_SANITIZE}")

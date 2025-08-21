@@ -1,23 +1,23 @@
 import logging
+import os
 
 import phonenumbers
-from followthemoney import model
-from followthemoney.types import registry
+from followthemoney import model # noqa: F401
 from phonenumbers.phonenumberutil import NumberParseException
 
 from .sanitize import sanitize_html
 
-DEFAULT_REGION = "US"
+DEFAULT_REGION = os.environ.get("PHONE_REGION", "US")
 log = logging.getLogger(__name__)
 
 
-def extract_phone_numbers(text: str | None) -> list[str]:
+def extract_phone_numbers(text: str | None, region: str = DEFAULT_REGION) -> list[str]:
     log.debug("Extracting phone numbers from text snippet")
     if not isinstance(text, str) or not text.strip():
         log.debug("No valid text provided for phone number extraction.")
         return []
 
-    matches = list(phonenumbers.PhoneNumberMatcher(text, DEFAULT_REGION))
+    matches = list(phonenumbers.PhoneNumberMatcher(text, region))
     log.debug(f"Found {len(matches)} raw phone candidates in text snippet")
 
     numbers: set[str] = set()
@@ -36,17 +36,23 @@ def extract_phone_numbers(text: str | None) -> list[str]:
     return sorted(numbers)
 
 
-
-def process_text_mentions(writer, text: str | None, link_entity_id: str | None = None, link_document_id: str | None = None) -> int:
+def process_text_mentions(
+    writer,
+    text: str | None,
+    link_entity_id: str | None = None,
+    link_document_id: str | None = None,
+    region: str = DEFAULT_REGION,
+) -> int:
     log.info("[phone.process_text_mentions] enter")
     if not isinstance(text, str) or not text.strip():
         log.warning("[phone.process_text_mentions] empty_text")
         return 0
     cleaned = sanitize_html(text)
-    phones = sorted(set(extract_phone_numbers(cleaned)))
+    phones = sorted(set(extract_phone_numbers(cleaned, region=region)))
     log.info("[phone.process_text_mentions] found=%d", len(phones))
     for p in phones:
         mention = model.make_entity("Mention")
+        mention.make_id("phone-mention", link_document_id or link_entity_id or "none", p)
         mention.add("name", p)
         mention.add("resolved", p)
         mention.add("detectedSchema", "Phone")
